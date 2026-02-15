@@ -4,13 +4,22 @@ set -euo pipefail
 
 BASE_URL="${1:-http://127.0.0.1:18000}"
 
+if command -v python3 >/dev/null 2>&1; then
+  PYTHON_BIN="python3"
+elif command -v python >/dev/null 2>&1; then
+  PYTHON_BIN="python"
+else
+  echo "Smoke failed: python3/python not found in PATH"
+  exit 1
+fi
+
 echo "Smoke: GET /admin/health"
 curl -fsS "${BASE_URL}/admin/health" >/dev/null
 
 echo "Smoke: GET /alerts?status=open"
 alerts_json="$(curl -fsS "${BASE_URL}/alerts?status=open")"
 
-read -r case_id txn_id < <(printf '%s' "${alerts_json}" | python -c 'import json,sys; data=json.load(sys.stdin); print((data[0]["case_id"] if data else ""), (data[0]["txn_id"] if data else ""))')
+read -r case_id txn_id < <(printf '%s' "${alerts_json}" | "${PYTHON_BIN}" -c 'import json,sys; data=json.load(sys.stdin); print((data[0]["case_id"] if data else ""), (data[0]["txn_id"] if data else ""))')
 
 if [[ -z "${case_id}" || -z "${txn_id}" ]]; then
   echo "Smoke failed: no open alerts returned"
