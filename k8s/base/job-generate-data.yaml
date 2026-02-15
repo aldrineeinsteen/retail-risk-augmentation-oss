@@ -1,0 +1,40 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: generate-data
+  namespace: retail-risk
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: generate-data
+          image: retail-risk-augmentation-oss:dev
+          command:
+            [
+              "python",
+              "-m",
+              "retail_risk_aug.cli",
+              "generate",
+              "--customers",
+              "200",
+              "--transactions",
+              "2000",
+              "--inject",
+              "200",
+              "--seed",
+              "42"
+            ]
+          envFrom:
+            - configMapRef:
+                name: retail-risk-config
+            - secretRef:
+                name: retail-risk-secret
+          resources:
+            requests:
+              cpu: 150m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

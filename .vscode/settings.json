@@ -1,0 +1,9 @@
+{
+  "github.copilot.chat.codeGeneration.instructions": [
+    "This project is Kubernetes-first.",
+    "All services must support execution via K8s Jobs.",
+    "All Python code must be type hinted.",
+    "Prefer modular, testable architecture.",
+    "Avoid hardcoded environment values."
+  ]
+}

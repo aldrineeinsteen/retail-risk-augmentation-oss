@@ -1,0 +1,41 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: run-pipeline
+  namespace: retail-risk
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: run-pipeline
+          image: retail-risk-augmentation-oss:dev
+          command:
+            [
+              "python",
+              "-m",
+              "retail_risk_aug.cli",
+              "pipeline",
+              "run-all",
+              "--customers",
+              "200",
+              "--transactions",
+              "2000",
+              "--inject",
+              "200",
+              "--seed",
+              "42"
+            ]
+          envFrom:
+            - configMapRef:
+                name: retail-risk-config
+            - secretRef:
+                name: retail-risk-secret
+          resources:
+            requests:
+              cpu: 200m
+              memory: 384Mi
+            limits:
+              cpu: 750m
+              memory: 768Mi

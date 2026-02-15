@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: retail-risk-api
+  namespace: retail-risk
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: retail-risk-api
+  template:
+    metadata:
+      labels:
+        app: retail-risk-api
+    spec:
+      containers:
+        - name: api
+          image: retail-risk-augmentation-oss:dev
+          command: ["python", "-m", "retail_risk_aug.cli", "serve", "--target", "api", "--host", "0.0.0.0", "--port", "8000"]
+          ports:
+            - containerPort: 8000
+              name: http
+          envFrom:
+            - configMapRef:
+                name: retail-risk-config
+            - secretRef:
+                name: retail-risk-secret
+          resources:
+            requests:
+              cpu: 150m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: retail-risk-api
+  namespace: retail-risk
+spec:
+  selector:
+    app: retail-risk-api
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000

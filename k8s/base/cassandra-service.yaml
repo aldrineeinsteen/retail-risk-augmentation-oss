@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: cassandra-headless
+  namespace: retail-risk
+spec:
+  clusterIP: None
+  selector:
+    app: cassandra
+  ports:
+    - name: cql
+      port: 9042
+      targetPort: 9042
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cassandra
+  namespace: retail-risk
+spec:
+  selector:
+    app: cassandra
+  ports:
+    - name: cql
+      port: 9042
+      targetPort: 9042
