@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: retail-risk-ui
+  namespace: retail-risk
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: retail-risk-ui
+  template:
+    metadata:
+      labels:
+        app: retail-risk-ui
+    spec:
+      containers:
+        - name: ui
+          image: retail-risk-augmentation-oss-ui:dev
+          ports:
+            - containerPort: 8501
+              name: http
+          envFrom:
+            - configMapRef:
+                name: retail-risk-config
+            - secretRef:
+                name: retail-risk-secret
+          resources:
+            requests:
+              cpu: 150m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: retail-risk-ui
+  namespace: retail-risk
+spec:
+  selector:
+    app: retail-risk-ui
+  ports:
+    - name: http
+      port: 8501
+      targetPort: 8501

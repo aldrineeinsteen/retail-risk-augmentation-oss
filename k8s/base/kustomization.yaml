@@ -11,5 +11,6 @@ resources:
   - minio-statefulset.yaml
   - trino-deployment.yaml
   - api-deployment.yaml
+  - ui-deployment.yaml
   - job-generate-data.yaml
   - job-run-pipeline.yaml

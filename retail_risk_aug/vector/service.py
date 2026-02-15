@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from typing import Any
 
@@ -25,21 +26,24 @@ class TransactionVectorIndex:
     id_to_position: dict[str, int]
     faiss_index: Any | None = None
 
-    def search_similar(self, txn_id: str, k: int) -> list[SimilarResult]:
+    def search_similar(self, txn_id: str, k: int, min_similarity: float = 0.78) -> list[SimilarResult]:
         if txn_id not in self.id_to_position:
             return []
 
         position = self.id_to_position[txn_id]
         query = self.vectors[position : position + 1]
+        max_candidates = min(max((k * 10) + 1, 32), len(self.txn_ids))
 
         if self.backend == "faiss" and self.faiss_index is not None:
-            scores, indices = self.faiss_index.search(query, min(k + 1, len(self.txn_ids)))
+            scores, indices = self.faiss_index.search(query, max_candidates)
             output: list[SimilarResult] = []
             for score, index in zip(scores[0], indices[0], strict=False):
                 if index < 0:
                     continue
                 candidate_id = self.txn_ids[int(index)]
                 if candidate_id == txn_id:
+                    continue
+                if float(score) < min_similarity:
                     continue
                 output.append(SimilarResult(txn_id=candidate_id, score=float(score)))
                 if len(output) >= k:
@@ -54,7 +58,10 @@ class TransactionVectorIndex:
             candidate_id = self.txn_ids[int(index)]
             if candidate_id == txn_id:
                 continue
-            output.append(SimilarResult(txn_id=candidate_id, score=float(similarities[int(index)])))
+            score = float(similarities[int(index)])
+            if score < min_similarity:
+                continue
+            output.append(SimilarResult(txn_id=candidate_id, score=score))
             if len(output) >= k:
                 break
         return output
@@ -93,11 +100,19 @@ def _embed_transaction(txn: Transaction) -> np.ndarray:
     channel_vec = [1.0 if txn.channel == channel else 0.0 for channel in CHANNELS]
     txn_type_vec = [1.0 if txn.txn_type == txn_type else 0.0 for txn_type in TXN_TYPES]
     amount_feature = min(txn.amount / 10000.0, 1.0)
+    amount_sqrt_feature = min((txn.amount**0.5) / 100.0, 1.0)
     injected_feature = 1.0 if txn.is_injected else 0.0
+    merchant_feature = _stable_hash_feature(txn.merchant_id)
+    device_feature = _stable_hash_feature(txn.device_id)
+    ip_feature = _stable_hash_feature(txn.ip)
 
     return np.array([
         amount_feature,
+        amount_sqrt_feature,
         injected_feature,
+        merchant_feature,
+        device_feature,
+        ip_feature,
         *channel_vec,
         *txn_type_vec,
     ])
@@ -107,3 +122,9 @@ def _normalize(vectors: np.ndarray) -> np.ndarray:
     norms = np.linalg.norm(vectors, axis=1, keepdims=True)
     norms[norms == 0] = 1.0
     return vectors / norms
+
+
+def _stable_hash_feature(value: str) -> float:
+    digest = hashlib.sha256(value.encode("utf-8")).hexdigest()[:8]
+    raw = int(digest, 16)
+    return raw / 0xFFFFFFFF

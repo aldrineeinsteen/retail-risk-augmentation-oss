@@ -10,16 +10,21 @@ KIND_CONFIG ?= k8s/kind-config.yaml
 NAMESPACE ?= retail-risk
 KUSTOMIZE_DIR ?= k8s/base
 IMAGE_NAME ?= retail-risk-augmentation-oss:dev
+API_IMAGE_NAME ?= retail-risk-augmentation-oss:dev
+UI_IMAGE_NAME ?= retail-risk-augmentation-oss-ui:dev
 API_PORT ?= 18000
+UI_PORT ?= 18501
 
-.PHONY: help check-tools test test-integration k8s-up k8s-down k8s-build-image k8s-deploy k8s-generate k8s-pipeline k8s-smoke k8s-status
+.PHONY: help check-tools test test-integration k8s-up k8s-down k8s-build-image k8s-build-api-image k8s-build-ui-image k8s-deploy k8s-generate k8s-pipeline k8s-smoke k8s-status
 
 help:
 	@echo "Targets:"
 	@echo "  test               - run fast unit + smoke tests"
 	@echo "  test-integration   - run integration scaffolding (RUN_INTEGRATION=1)"
 	@echo "  k8s-up             - create kind cluster"
-	@echo "  k8s-build-image    - build local image and load into kind"
+	@echo "  k8s-build-image    - build/load both API and UI images into kind"
+	@echo "  k8s-build-api-image- build/load API image into kind"
+	@echo "  k8s-build-ui-image - build/load UI image into kind"
 	@echo "  k8s-deploy         - apply k8s/base and wait for core deployments"
 	@echo "  k8s-generate       - run generate-data job"
 	@echo "  k8s-pipeline       - run run-pipeline job"
@@ -52,9 +57,15 @@ k8s-down:
 		echo "kind cluster '$(KIND_CLUSTER_NAME)' not found"; \
 	fi
 
-k8s-build-image: check-tools
-	$(DOCKER) build -t $(IMAGE_NAME) .
-	$(KIND) load docker-image $(IMAGE_NAME) --name $(KIND_CLUSTER_NAME)
+k8s-build-image: k8s-build-api-image k8s-build-ui-image
+
+k8s-build-api-image: check-tools
+	$(DOCKER) build -t $(API_IMAGE_NAME) -f Dockerfile .
+	$(KIND) load docker-image $(API_IMAGE_NAME) --name $(KIND_CLUSTER_NAME)
+
+k8s-build-ui-image: check-tools
+	$(DOCKER) build -t $(UI_IMAGE_NAME) -f Dockerfile.ui .
+	$(KIND) load docker-image $(UI_IMAGE_NAME) --name $(KIND_CLUSTER_NAME)
 
 k8s-deploy:
 	$(KUBECTL) apply -k $(KUSTOMIZE_DIR)
@@ -62,6 +73,7 @@ k8s-deploy:
 	$(KUBECTL) -n $(NAMESPACE) rollout status statefulset/minio --timeout=300s
 	$(KUBECTL) -n $(NAMESPACE) rollout status deployment/trino --timeout=300s
 	$(KUBECTL) -n $(NAMESPACE) rollout status deployment/retail-risk-api --timeout=300s
+	$(KUBECTL) -n $(NAMESPACE) rollout status deployment/retail-risk-ui --timeout=300s
 
 k8s-generate:
 	$(KUBECTL) -n $(NAMESPACE) delete job generate-data --ignore-not-found=true
